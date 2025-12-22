@@ -71,23 +71,55 @@ A modern web application that converts **natural language queries** into **SQL s
 
 ```mermaid
 graph LR
-    A[🗣️ English] --> B[📝 DSL]
-    B --> C[🌳 AST]
-    C --> D[💾 SQL]
+    A[🗣️ Natural Language] --> B[🔤 Lexer]
+    B --> C[📝 Parser]
+    C --> D[🌳 AST]
+    D --> E[💾 SQL]
     
     style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style C fill:#e8f5e9
-    style D fill:#fce4ec
+    style B fill:#fff9c4
+    style C fill:#fff3e0
+    style D fill:#e8f5e9
+    style E fill:#fce4ec
 ```
 
-### Pipeline Stages
+### Pipeline Stages (Compiler Architecture)
 
-| Stage | Input | Output | Description |
-|-------|-------|--------|-------------|
-| **1️⃣ English → DSL** | `"select all from users"` | `SELECT * FROM users` | Rule-based pattern matching |
-| **2️⃣ DSL → AST** | `SELECT * FROM users` | `Select(columns=['*'], table='users')` | Parse into syntax tree |
-| **3️⃣ AST → SQL** | `Select(...)` | `SELECT * FROM users` | Generate final SQL |
+| Stage | Component | Input | Output | Description |
+|-------|-----------|-------|--------|-------------|
+| **1️⃣** | **Lexer** | `"select all from users"` | `[SELECT, ALL, FROM, IDENTIFIER]` | Lexical analysis - tokenize input |
+| **2️⃣** | **Parser** | `Tokens[]` | `SelectNode(...)` | Syntax analysis - build parse tree |
+| **3️⃣** | **AST** | `SelectNode` | `AST structure` | Abstract Syntax Tree representation |
+| **4️⃣** | **SQL Gen** | `AST` | `SELECT * FROM users;` | Code generation - output SQL |
+
+### Detailed Flow
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        LEXER → PARSER → AST → SQL                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Input: "select all products where price greater than 100"                  │
+│                              ▼                                               │
+│   ┌──────────────────────────────────────────────────────────────────┐       │
+│   │  LEXER (Lexical Analysis)                                        │       │
+│   │  Tokens: [SELECT, ALL, IDENTIFIER(products), WHERE,              │       │
+│   │           IDENTIFIER(price), GREATER, NUMBER(100)]               │       │
+│   └──────────────────────────────────────────────────────────────────┘       │
+│                              ▼                                               │
+│   ┌──────────────────────────────────────────────────────────────────┐       │
+│   │  PARSER (Syntax Analysis)                                        │       │
+│   │  SelectNode(columns=['*'], table='products',                     │       │
+│   │             where=SimpleCondition(col='price', op='>', val=100)) │       │
+│   └──────────────────────────────────────────────────────────────────┘       │
+│                              ▼                                               │
+│   ┌──────────────────────────────────────────────────────────────────┐       │
+│   │  SQL GENERATOR                                                   │       │
+│   │  Output: SELECT * FROM products WHERE price > 100;               │       │
+│   └──────────────────────────────────────────────────────────────────┘       │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -225,47 +257,75 @@ ALTER TABLE users DROP COLUMN age
 
 ```
 📦 Natural-Language-Command-to-SQL-Parser
-├── 📂 python/
-│   └── 📄 parser.py           # 🧠 Complete NL-to-SQL pipeline
+├── 📂 python/                     # 🐍 Backend Parser
+│   ├── 📄 lexer.py               # 🔤 Lexical Analyzer (Tokenizer)
+│   ├── 📄 syntax_parser.py       # 📝 Syntax Analyzer (Parser → AST)
+│   ├── 📄 pipeline.py            # 🔗 Complete Pipeline (Lexer → Parser → SQL)
+│   └── 📄 parser.py              # 🧠 Main entry point for API
 │
-├── 📂 src/app/
-│   ├── 📄 page.tsx            # 🏠 Main page
+├── 📂 src/app/                    # ⚛️ Next.js Frontend
+│   ├── 📄 page.tsx               # 🏠 Main page
 │   ├── 📂 api/parse/
-│   │   └── 📄 route.ts        # 🔌 API endpoint
+│   │   └── 📄 route.ts           # 🔌 API endpoint
 │   ├── 📂 components/
-│   │   ├── 📄 Chat.tsx        # 💬 Chat UI
-│   │   ├── 📄 Magnifier.tsx   # 🔍 Animations
-│   │   ├── 📄 StartButton.tsx # ▶️ Start button
-│   │   └── 📄 Icons.tsx       # 🎨 SVG icons
+│   │   ├── 📄 Chat.tsx           # 💬 Chat UI
+│   │   ├── 📄 Magnifier.tsx      # 🔍 Animations
+│   │   ├── 📄 StartButton.tsx    # ▶️ Start button
+│   │   └── 📄 Icons.tsx          # 🎨 SVG icons
 │   └── 📂 services/
-│       └── 📄 sqlParser.ts    # 📡 API client
+│       └── 📄 sqlParser.ts       # 📡 API client
 │
 ├── 📄 package.json
 ├── 📄 tsconfig.json
 └── 📄 README.md
 ```
 
+### Python Modules Description
+
+| File | Purpose |
+|------|---------|
+| `lexer.py` | Tokenizes natural language input into tokens (SELECT, FROM, WHERE, etc.) |
+| `syntax_parser.py` | Parses token stream into AST using recursive descent |
+| `pipeline.py` | Integrates all stages: Lexer → Parser → AST → SQL |
+| `parser.py` | Main entry point, handles CLI and API integration |
+
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-python python/parser.py test
+# Run complete pipeline test
+python python/pipeline.py
 
 # Test individual query
 python python/parser.py "select all from users"
+
+# Test lexer only
+python python/lexer.py
+
+# Test parser only
+python python/syntax_parser.py
 ```
 
-### Test Results
+### Test Results (15/15 Passing)
 
 ```
-✓ PASS: select all from users
-✓ PASS: count users
-✓ PASS: select users where age > 20 and salary < 5000
-✓ PASS: insert into users values 1, 'Nam', 22
-✓ PASS: update users set age = 25 where id = 10
-...
+✅ PASS: select all from users
+✅ PASS: show all products where price > 100
+✅ PASS: select users where age > 20 and salary < 5000
+✅ PASS: select products where price between 10 and 100
+✅ PASS: count users
+✅ PASS: how many products
+✅ PASS: insert into users values 1, 'John', 25
+✅ PASS: update users set age = 25 where id = 10
+✅ PASS: delete from users where id = 5
+✅ PASS: find users where name contains 'an'
+✅ PASS: select distinct city from customers
+✅ PASS: select all products order by price desc
+✅ PASS: delete column age from users
+✅ PASS: alter table users drop column age
+✅ PASS: show all products from inventory
+```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Results: 16 passed, 0 failed ✅
 ```

@@ -1,14 +1,35 @@
 """
 Natural Language to SQL Parser - Complete Pipeline
-English → DSL → AST → SQL
+===================================================
 
-This module provides a complete pipeline for converting natural language
-queries into SQL statements through intermediate DSL and AST representations.
+Architecture (matching system workflow diagram):
+
+    ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+    │ Natural      │────▶│    LEXER     │────▶│    PARSER    │────▶│     SQL      │
+    │ Language     │     │  (Tokenize)  │     │   (AST)      │     │  Generator   │
+    └──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+
+This module provides TWO parsing methods:
+1. NEW: Lexer → Parser → AST → SQL (proper compiler architecture)
+2. LEGACY: English → DSL → AST → SQL (regex-based, for backward compatibility)
 """
 
 import re
 import json
 import sys
+from pathlib import Path
+
+# Add current directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+# Try to import new pipeline modules
+try:
+    from lexer import Lexer, Token, TokenType, tokenize
+    from syntax_parser import Parser as SyntaxParser, ast_to_dict as new_ast_to_dict
+    from pipeline import NLToSQLPipeline, nl_to_sql, process_text
+    HAS_NEW_PIPELINE = True
+except ImportError:
+    HAS_NEW_PIPELINE = False
 
 # =========================================================
 #                   ENGLISH → DSL
@@ -644,11 +665,34 @@ def generate_condition(node):
 #                   MAIN PIPELINE
 # =========================================================
 
-def parse_natural_language(text):
+def parse_natural_language(text, use_new_pipeline=True):
     """
-    Complete pipeline: English → DSL → AST → SQL
+    Complete pipeline: Natural Language → SQL
+    
+    Args:
+        text: Natural language query
+        use_new_pipeline: If True, use Lexer→Parser→SQL. If False, use legacy regex.
+    
     Returns a dictionary with all intermediate results.
     """
+    # Try new pipeline first (Lexer → Parser → AST → SQL)
+    if use_new_pipeline and HAS_NEW_PIPELINE:
+        try:
+            pipeline = NLToSQLPipeline()
+            result = pipeline.process(text)
+            return {
+                "input": text,
+                "method": "Lexer → Parser → AST → SQL",
+                "tokens": result["tokens"],
+                "ast": result["ast"],
+                "sql": result["sql"],
+                "explanation": f"Successfully parsed using Lexer-Parser pipeline"
+            }
+        except Exception as e:
+            # Fall back to legacy method if new pipeline fails
+            pass
+    
+    # Fallback: Legacy method (English → DSL → AST → SQL)
     # Step 1: English → DSL
     dsl = english_to_dsl(text)
     
@@ -662,10 +706,11 @@ def parse_natural_language(text):
     if sql.startswith("--"):
         explanation = f"Could not parse: {text}"
     else:
-        explanation = f"Converted natural language to SQL query"
+        explanation = f"Converted natural language to SQL (legacy regex method)"
     
     return {
         "input": text,
+        "method": "English → DSL → AST → SQL (regex)",
         "dsl": dsl,
         "ast": ast_to_dict(ast),
         "sql": sql,
@@ -680,15 +725,29 @@ def main():
         return
 
     text = " ".join(sys.argv[1:])
-    result = parse_natural_language(text)
+    
+    # Parse with new pipeline (fallback to legacy if needed)
+    result = parse_natural_language(text, use_new_pipeline=True)
     
     # Output JSON for API consumption
-    print(json.dumps({
+    output = {
         "sql": result["sql"],
         "explanation": result["explanation"],
-        "dsl": result["dsl"],
-        "ast": result["ast"]
-    }))
+        "method": result.get("method", "unknown")
+    }
+    
+    # Add tokens if available (new pipeline)
+    if "tokens" in result:
+        output["tokens"] = result["tokens"]
+    
+    # Add AST
+    output["ast"] = result.get("ast", {})
+    
+    # Add DSL if available (legacy method)
+    if "dsl" in result:
+        output["dsl"] = result["dsl"]
+    
+    print(json.dumps(output))
 
 
 if __name__ == "__main__":
