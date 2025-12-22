@@ -325,9 +325,9 @@ python python/syntax_parser.py
 ✅ PASS: delete column age from users
 ✅ PASS: alter table users drop column age
 ✅ PASS: show all products from inventory
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Results: 16 passed, 0 failed ✅
+Results: 15 passed, 0 failed ✅
 ```
 
 ---
