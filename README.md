@@ -332,30 +332,6 @@ Results: 15 passed, 0 failed ✅
 
 ---
 
-## 👥 Team
-
-<table>
-<tr>
-<td align="center" width="33%">
-<b>Tín</b><br>
-<sub>English → DSL</sub><br>
-<sub>Rule-based pattern matching</sub>
-</td>
-<td align="center" width="33%">
-<b>T</b><br>
-<sub>DSL → Parser/AST</sub><br>
-<sub>Abstract Syntax Tree</sub>
-</td>
-<td align="center" width="33%">
-<b>Quân</b><br>
-<sub>AST → SQL + Frontend</sub><br>
-<sub>Code generation & UI</sub>
-</td>
-</tr>
-</table>
-
----
-
 ## 🔮 Roadmap
 
 - [ ] 🎤 Voice input support
